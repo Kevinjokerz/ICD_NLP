@@ -82,7 +82,7 @@ def load_config(cli_args: Any) -> PrepConfig:
 
     encoding = getattr(cli_args, "encoding", None) or env["ENCODING"]
     join_policy = getattr(cli_args, "join_policy", None) or env["JOIN_POLICY"]
-    concat_sep = getattr(cli_args, "concat_sep", "None") or env["CONCAT_SEP"]
+    concat_sep = getattr(cli_args, "concat_sep", None) or env["CONCAT_SEP"]
     min_note_len = getattr(cli_args, "min_note_len", None)
     min_note_len = env["MIN_NOTE_LEN"] if min_note_len is None else int(min_note_len)
 

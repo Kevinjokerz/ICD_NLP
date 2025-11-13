@@ -1,10 +1,11 @@
 from __future__ import annotations
 from pathlib import Path
-from typing import Optional, Any
+from typing import Optional, Any, Iterable, List
 import logging, json
 import pandas as pd
 import pandas.api.types as pdt
 from .paths import get_project_root, looks_absolute, to_relpath
+import numpy as np
 
 ABS_HINTS = (":\\", ":/", "\\\\")   # Window drive, URL-like, UNC shares
 
@@ -150,3 +151,83 @@ def sanitize_path_columns(df: pd.DataFrame, root: Optional[Path]=None) -> pd.Dat
             assert df[c].dtype == out[c].dtype, f"dtype changed for non-path column '{c}'"
 
     return out
+
+def to_list_str(x: Any, *, uppercase: bool = True, remove_dots: bool = False,
+                parse_json_list: bool = True, split_commas: bool=True, drop_empty: bool = True
+) -> List[str]:
+    """
+    Robust converter for label-like fields -> list[str] (ICD-safe)
+
+    Parameters
+    ---------
+    x       : Any
+        Input object: list/tuple/set/ndarray/str/bytes/None/NaN/JSON-list string.
+    uppercase   : bool, default=True
+        Normalize tokens to uppercase
+    remove_dots : bool, default=False
+        Remove '.' from tokens (e.g., '250.00' -> '25000') if label_map uses no dots.
+    parse_json_list : bool, default=True
+        If x is a string that looks like a JSON list, parse it.
+    split_commas: bool, default=True
+        If x is a plain string with commas, split by ',' into tokens.
+    drop_empty  : bool, default=True
+        Drop empty tokens after stripping.
+
+    Returns
+    -------
+    list[str]
+        Cleaned tokens, PHI-safe, ready to match label_map keys.
+    
+    Notes
+    -----
+    - Do NOT log raw tokens here.
+    - Keep behavior deterministic; document any normalization that affects matching.
+    """
+    if x is None or (isinstance(x, float) and np.isnan(x)):
+        return []
+    
+    if isinstance(x, (list, tuple, set, np.ndarray)):
+        iter_tokens= list(x)
+    elif isinstance(x, (bytes, bytearray)):
+        s = x.decode("utf-8", errors="ignore")
+        if parse_json_list and s.strip().startswith("[") and s.strip().endswith("]"):
+            try:
+                arr = json.loads(s)
+                iter_tokens = list(arr) if isinstance(arr, Iterable) else [s]
+            except Exception:
+                iter_tokens = [s]
+        elif split_commas and ("," in s):
+            iter_tokens = s.split(",")
+        else:
+            iter_tokens = [s]
+    elif isinstance(x, str):
+        s = x.strip()
+        if s == "":
+            return []
+        if parse_json_list and s.startswith("[") and s.endswith("]"):
+            try:
+                arr = json.loads(s)
+                iter_tokens = list(arr) if isinstance(arr, Iterable) else [s]
+            except Exception:
+                iter_tokens = [s]
+        elif split_commas and ("," in s):
+            iter_tokens = s.split(",")
+        else:
+            iter_tokens = [s]
+    else:
+        iter_tokens = [x]
+    
+    out: List[str] = []
+    for tok in iter_tokens:
+        t = str(tok).strip()
+        if remove_dots:
+            t = t.replace(".", "")
+        if uppercase:
+            t = t.upper()
+        if drop_empty and t == "":
+            continue
+        out.append(t)
+
+    return out
+        
+            

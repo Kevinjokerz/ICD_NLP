@@ -30,7 +30,7 @@ from typing import Optional
 import json
 import pandas as pd
 import numpy as np
-from .utils import (
+from src.utils import (
     load_config, setup_logger, set_seed,
     read_csv, save_csv_with_json_labels,
     save_table, export_jsonl, to_relpath,

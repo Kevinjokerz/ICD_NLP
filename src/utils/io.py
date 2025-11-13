@@ -296,9 +296,9 @@ def _labels_to_list_any(v: Any) -> list[str]:
     """
     if isinstance(v, str):
         try:
-            return [str(v) for x in json.loads(v)]
+            return [str(x) for x in json.loads(v)]
         except Exception:
-            return v
+            return [v]
     if v is None:
         return []
     
@@ -473,3 +473,70 @@ def export_jsonl(df: pd.DataFrame, jsonl_path: Union[str, Path]) -> None:
             line = json.dumps(rec, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
             f.write(line + '\n')
     logging.info(f"[SAVE] {to_relpath(dest)} lines={len(df):,}")
+
+def read_jsonl(path: Path, *, nrows: Optional[int] = None, logger=None) -> pd.DataFrame:
+    """
+    Read JSONL into a pandas DataFrame
+
+    Parameters
+    ----------
+    path    : Path
+        path to .jsonl file
+    nrows   : int, optional
+        Limit rows for sampling/debug (None = all).
+    
+    Returns
+    -------
+    pd.DataFrame
+        Columns inferred from JSON keys.
+    
+    Notes
+    -----
+    - Each line must be a valid JSON object.
+    - Automatically casts 'labels' to list[str] if possible.
+    - Logs row/column counts but never prints raw TEXT.
+    """
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"File not found: {p}")
+    
+    if logger is None:
+        logger = logging.getLogger(__name__)
+
+    records = []
+    with p.open("r", encoding="utf-8") as f:
+        for i, line in enumerate(f):
+            if nrows is not None and i >= nrows:
+                break
+            try:
+                rec = json.loads(line)
+                records.append(rec)
+            except json.JSONDecodeError as e:
+                logger.warning(f"[SKIP] line {i}: {e}")
+                continue
+    
+    if not records:
+        logger.warning(f"[EMPTY] {path}")
+        return pd.DataFrame()
+
+    df = pd.DataFrame.from_records(records)
+
+    df.columns = [c.upper() for c in df.columns]
+
+    for col in ("SUBJECT_ID", "HADM_ID"):
+        if col in df.columns:
+            try:
+                df[col] = pd.to_numeric(df[col])
+            except Exception:
+                pass
+
+    if "LABELS" in df.columns:
+        df["LABELS"] = df["LABELS"].apply(
+            lambda x: x if isinstance(x, list) else []
+        )
+
+    logger.info(
+        f"[READ] {p.as_posix()} -> rows={len(df):,}, cols={df.shape[1]}"
+    )
+    
+    return df

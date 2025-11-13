@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import datetime
 
 
-def setup_logger(name: str = 'prep', log_dir: str = "logs") -> logging.Logger:
+def setup_logger(name: str = 'prep', log_dir: str = "logs", level: int = logging.INFO) -> logging.Logger:
     """
     Create a dual-handler logger that writes both to console and to a file.
     Files logs are timestamped unnder logs/ for auditing and reproducibility.
@@ -42,21 +42,23 @@ def setup_logger(name: str = 'prep', log_dir: str = "logs") -> logging.Logger:
     # --- Console handler ---
     ch = logging.StreamHandler()
     ch.setFormatter(fmt)
-    ch.setLevel(logging.INFO)
+    ch.setLevel(level)
 
     # --- File handler ---
     fh = logging.FileHandler(log_path, mode="w", encoding="utf-8")
     fh.setFormatter(fmt)
-    fh.setLevel(logging.INFO)
+    fh.setLevel(level)
 
     # --- Attach both handlers ---
     root = logging.getLogger()
     if not root.handlers:
         root.addHandler(ch)
         root.addHandler(fh)
-        root.setLevel(logging.INFO)
+    root.setLevel(level)
     
     logger = logging.getLogger(name)
     logger.propagate = True
+    logger.setLevel(level)
     logger.info(f"[INIT] logging to {log_path.as_posix()}")
+    
     return logger

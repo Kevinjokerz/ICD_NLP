@@ -43,7 +43,7 @@ def compute_pos_weight(option: Optional[str], Y_tr: np.ndarray, logger: logging.
         neg = Nf - pos
         pos[pos <= 0.0] = 1.0
         w = neg / pos
-        w = np.clip(w, 1.0, 20.0).astype("float32")
+        w = np.clip(w, 1.0, 12.0).astype("float32")
         logger.info("[POS] pos_weight balanced: min=%.3f, max=%.3f", float(w.min()), float(w.max()))
         return torch.from_numpy(w)
     
